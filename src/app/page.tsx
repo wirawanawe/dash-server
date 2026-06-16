@@ -1,65 +1,138 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import React, { useEffect, useState } from 'react';
+import { Cpu, HardDrive, MemoryStick, Activity, RefreshCw } from 'lucide-react';
+import { MetricCard } from '@/components/MetricCard';
+import { ServiceStatus } from '@/components/ServiceStatus';
+import { Pm2Table } from '@/components/Pm2Table';
+
+export default function Dashboard() {
+  const [metrics, setMetrics] = useState<any>(null);
+  const [services, setServices] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const fetchData = async () => {
+    try {
+      setRefreshing(true);
+      const [metricsRes, servicesRes] = await Promise.all([
+        fetch('/api/metrics'),
+        fetch('/api/services')
+      ]);
+      
+      const metricsData = await metricsRes.json();
+      const servicesData = await servicesRes.json();
+      
+      setMetrics(metricsData);
+      setServices(servicesData);
+    } catch (error) {
+      console.error("Error fetching dashboard data:", error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+    // Refresh every 10 seconds
+    const interval = setInterval(fetchData, 10000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const formatBytes = (bytes: number, decimals = 2) => {
+    if (!+bytes) return '0 Bytes';
+    const k = 1024;
+    const dm = decimals < 0 ? 0 : decimals;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#0f172a]">
+        <div className="flex flex-col items-center gap-4">
+          <RefreshCw className="w-8 h-8 text-indigo-500 animate-spin" />
+          <p className="text-indigo-200 font-medium tracking-widest uppercase text-sm">Initializing Dashboard...</p>
+        </div>
+      </div>
+    );
+  }
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
+    <div className="font-sans relative">
+
+      <header className="flex justify-between items-end mb-12">
+        <div>
+          <h1 className="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400 tracking-tight">
+            Home Server Dashboard
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+          <p className="text-slate-400 mt-2 font-medium">Monitoring system metrics and services</p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
+        <button 
+          onClick={fetchData}
+          disabled={refreshing}
+          className="flex items-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white px-4 py-2 rounded-xl transition-all font-medium text-sm disabled:opacity-50"
+        >
+          <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+          Refresh
+        </button>
+      </header>
+
+      <div className="space-y-8">
+        {/* Hardware Metrics Row */}
+        <div>
+          <h2 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
+            <Activity className="w-5 h-5 text-indigo-400" />
+            Hardware Metrics
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <MetricCard 
+              title="CPU Usage"
+              icon={Cpu}
+              value={`${metrics?.cpu?.loadPercentage}%`}
+              subValue={`${metrics?.cpu?.cores} Cores`}
+              percentage={parseFloat(metrics?.cpu?.loadPercentage || '0')}
+              colorClass="text-indigo-500"
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+            <MetricCard 
+              title="Memory Usage"
+              icon={MemoryStick}
+              value={formatBytes(metrics?.ram?.used || 0)}
+              subValue={`of ${formatBytes(metrics?.ram?.total || 0)}`}
+              percentage={parseFloat(metrics?.ram?.usedPercentage || '0')}
+              colorClass="text-purple-500"
+            />
+            <MetricCard 
+              title="Disk Usage (/)"
+              icon={HardDrive}
+              value={formatBytes(metrics?.disk?.used || 0)}
+              subValue={`of ${formatBytes(metrics?.disk?.total || 0)}`}
+              percentage={metrics?.disk?.usedPercentage || 0}
+              colorClass="text-pink-500"
+            />
+          </div>
         </div>
-      </main>
+
+        {/* Services Status Row */}
+        <div>
+          <h2 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
+            <Activity className="w-5 h-5 text-green-400" />
+            Core Services
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <ServiceStatus 
+              serviceName="MySQL Database" 
+              status={services?.mysql?.status || 'stopped'} 
+            />
+          </div>
+        </div>
+
+        {/* PM2 Apps Table */}
+        <div className="pt-4">
+          <Pm2Table apps={services?.pm2 || []} />
+        </div>
+      </div>
     </div>
   );
 }
